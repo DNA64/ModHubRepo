@@ -1,9 +1,10 @@
 # MMC Central Repository for Hakchi2 CE
 
-A shared Mod Hub repository for Hakchi2 CE, at
-[github.com/DNA64/ModHubRepo](https://github.com/DNA64/ModHubRepo). Mod and game authors submit
+    WORK IN PROGRESS: This repository is still under development and is not ready for use.
+
+A shared Mod Hub repository for Hakchi2 CE. Mod and game authors submit
 packages by pull request; every pull request is checked automatically, and
-merged packages are published to the Mod Hub site.
+merged packages are published to the Mod Hub site. More information to follow..
 
 ## Add this repository in Hakchi2 CE
 
