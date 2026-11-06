@@ -3,6 +3,10 @@ name: Publish site
 # Rebuilds the Mod Hub site from packages/ and pushes it to the gh-pages
 # branch whenever main changes. Set Settings → Pages to "Deploy from a
 # branch", gh-pages, / (root).
+#
+# The last step fetches the .repo files back from the live site, the way
+# Hakchi2 CE does, and fails the run if they're missing or out of date
+# (for example when Pages is serving the wrong branch).
 on:
   push:
     branches: [main]
@@ -57,3 +61,30 @@ jobs:
           git add -A
           git commit -q -m "Publish site from ${GITHUB_SHA::7}"
           git push -q -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
+
+      # Pages takes a minute or two to go live
+      # after a push, so this retries for up to 10 minutes.
+      - name: Check the live site
+        run: |
+          # Same address build-site.mjs used for the download links.
+          SITE=$(node --input-type=module -e '
+            import fs from "node:fs";
+            import { pagesUrl } from "./publisher/src/publish.js";
+            const c = JSON.parse(fs.readFileSync("repo/repo.json", "utf8"));
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
+            console.log(String(c.siteUrl || "").trim().replace(/\/+$/, "") || pagesUrl({ owner, repo }));
+          ')
+          echo "Checking $SITE/.repo/"
+          FILES=".repo/pack.tgz .repo/list"
+          for attempt in $(seq 1 30); do
+            ok=1
+            for f in $FILES; do
+              want=$(md5sum < "site/$f" | cut -d' ' -f1)
+              got=$(curl -sfL "$SITE/$f?run=$GITHUB_RUN_ID-$attempt" | md5sum | cut -d' ' -f1)
+              if [ "$got" != "$want" ]; then ok=0; echo "  $f: not live yet (attempt $attempt)"; fi
+            done
+            if [ $ok = 1 ]; then echo "The live site serves $FILES from this build."; exit 0; fi
+            sleep 20
+          done
+          echo "::error::$SITE/.repo/ files are missing or out of date after 10 minutes. Check Settings → Pages is \"Deploy from a branch\", gh-pages, / (root), and the pages-build-deployment run under Actions."
+          exit 1
